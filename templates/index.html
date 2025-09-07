@@ -15,9 +15,12 @@
       select, button { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
       .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       ul { list-style: none; padding-left: 0; margin: 0; max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 6px; }
-      li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #f2f2f2; }
+      li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #f2f2f2; cursor: pointer; }
       li:last-child { border-bottom: none; }
+      li:hover { background-color: #f8f8f8; }
       .file-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .folder-icon { color: #ffa500; font-weight: bold; }
+      .file-icon { color: #666; }
       .preview { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
       footer { padding: 12px 16px; border-top: 1px solid #ddd; display: flex; align-items: center; gap: 12px; }
       .status { font-size: 12px; opacity: .8; }
@@ -37,7 +40,13 @@
       <section class="panel">
         <div class="row">
           <div>
-            <label>RAW MP4 files (raw/)</label>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <label style="margin: 0;">RAW MP4 files (raw/)</label>
+              <button id="showAllBtn" style="padding: 4px 8px; font-size: 12px;">Show All</button>
+              <button id="browseBtn" style="padding: 4px 8px; font-size: 12px;">Browse</button>
+              <button id="selectAllBtn" style="padding: 4px 8px; font-size: 12px;">Select All</button>
+            </div>
+            <div id="breadcrumb" style="font-size: 12px; margin-bottom: 8px; color: #666;"></div>
             <ul id="files"></ul>
           </div>
           <div>
@@ -60,8 +69,14 @@
       const previewUl = byId('preview');
       const statusEl = byId('status');
       const exportBtn = byId('exportBtn');
+      const showAllBtn = byId('showAllBtn');
+      const browseBtn = byId('browseBtn');
+      const selectAllBtn = byId('selectAllBtn');
+      const breadcrumbEl = byId('breadcrumb');
 
       let currentFiles = [];
+      let currentDirectory = '';
+      let isShowingAll = false;
 
       async function fetchJSON(url) {
         const res = await fetch(url);
@@ -69,28 +84,130 @@
         return res.json();
       }
 
-      function renderFiles(files) {
+      function renderFiles(data) {
         filesUl.innerHTML = '';
-        for (const f of files) {
-          const li = document.createElement('li');
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.checked = true;
-          cb.dataset.filename = f;
-          const span = document.createElement('span');
-          span.className = 'file-name';
-          span.textContent = f;
-          li.appendChild(cb);
-          li.appendChild(span);
-          filesUl.appendChild(li);
+        
+        if (isShowingAll) {
+          // Show all MP4 files recursively
+          for (const f of data.all_mp4_files) {
+            const li = document.createElement('li');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.dataset.filename = f;
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = '📄';
+            const span = document.createElement('span');
+            span.className = 'file-name';
+            span.textContent = f;
+            li.appendChild(cb);
+            li.appendChild(icon);
+            li.appendChild(span);
+            filesUl.appendChild(li);
+          }
+        } else {
+          // Show folders first, then files
+          for (const folder of data.folders) {
+            const li = document.createElement('li');
+            const icon = document.createElement('span');
+            icon.className = 'folder-icon';
+            icon.textContent = '📁';
+            const span = document.createElement('span');
+            span.className = 'file-name';
+            span.textContent = folder;
+            li.dataset.folder = folder;
+            li.appendChild(icon);
+            li.appendChild(span);
+            filesUl.appendChild(li);
+          }
+          
+          for (const f of data.files) {
+            const li = document.createElement('li');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.dataset.filename = f;
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = '📄';
+            const span = document.createElement('span');
+            span.className = 'file-name';
+            span.textContent = f;
+            li.appendChild(cb);
+            li.appendChild(icon);
+            li.appendChild(span);
+            filesUl.appendChild(li);
+          }
         }
+        
+        // Update the select all button state after rendering
+        updateSelectAllButton();
       }
 
       function getSelectedFiles() {
         const boxes = filesUl.querySelectorAll('input[type="checkbox"]');
         const out = [];
-        boxes.forEach(b => { if (b.checked) out.push(b.dataset.filename); });
+        boxes.forEach(b => { 
+          if (b.checked) {
+            const filename = b.dataset.filename;
+            // If we're in a subdirectory, prepend the current directory path
+            if (currentDirectory && !isShowingAll) {
+              out.push(currentDirectory + '/' + filename);
+            } else {
+              out.push(filename);
+            }
+          }
+        });
         return out;
+      }
+
+      function updateBreadcrumb() {
+        if (isShowingAll) {
+          breadcrumbEl.textContent = 'All MP4 files (recursive)';
+        } else if (currentDirectory) {
+          breadcrumbEl.textContent = `raw/${currentDirectory}/`;
+        } else {
+          breadcrumbEl.textContent = 'raw/';
+        }
+      }
+
+      function toggleAllFiles() {
+        const checkboxes = filesUl.querySelectorAll('input[type="checkbox"]');
+        if (checkboxes.length === 0) return;
+        
+        // Check if all files are currently selected
+        const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+        
+        // Toggle all checkboxes
+        checkboxes.forEach(cb => {
+          cb.checked = !allSelected;
+        });
+        
+        // Update button text
+        selectAllBtn.textContent = allSelected ? 'Select All' : 'Deselect All';
+        
+        // Refresh preview
+        refreshPreview();
+      }
+
+      function updateSelectAllButton() {
+        const checkboxes = filesUl.querySelectorAll('input[type="checkbox"]');
+        if (checkboxes.length === 0) {
+          selectAllBtn.textContent = 'Select All';
+          return;
+        }
+        
+        const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+        const someSelected = Array.from(checkboxes).some(cb => cb.checked);
+        
+        if (allSelected) {
+          selectAllBtn.textContent = 'Deselect All';
+        } else if (someSelected) {
+          selectAllBtn.textContent = 'Select All';
+        } else {
+          selectAllBtn.textContent = 'Select All';
+        }
       }
 
       async function refreshPreview() {
@@ -135,9 +252,11 @@
       }
 
       async function loadFiles() {
-        const data = await fetchJSON('/api/files');
+        const url = currentDirectory ? `/api/files?subdir=${encodeURIComponent(currentDirectory)}` : '/api/files';
+        const data = await fetchJSON(url);
         currentFiles = data.files;
-        renderFiles(currentFiles);
+        renderFiles(data);
+        updateBreadcrumb();
         await refreshPreview();
       }
 
@@ -151,7 +270,44 @@
 
       filesUl.addEventListener('change', async (e) => {
         if (e.target && e.target.matches('input[type="checkbox"]')) {
+          updateSelectAllButton();
           await refreshPreview();
+        }
+      });
+
+      filesUl.addEventListener('click', async (e) => {
+        const li = e.target.closest('li');
+        if (li && li.dataset.folder) {
+          // Navigate into folder
+          currentDirectory = currentDirectory ? `${currentDirectory}/${li.dataset.folder}` : li.dataset.folder;
+          isShowingAll = false;
+          await loadFiles();
+        }
+      });
+
+      showAllBtn.addEventListener('click', async () => {
+        isShowingAll = true;
+        await loadFiles();
+      });
+
+      browseBtn.addEventListener('click', async () => {
+        isShowingAll = false;
+        currentDirectory = '';
+        await loadFiles();
+      });
+
+      selectAllBtn.addEventListener('click', () => {
+        toggleAllFiles();
+      });
+
+      breadcrumbEl.addEventListener('click', async () => {
+        if (currentDirectory) {
+          // Go back to parent directory
+          const parts = currentDirectory.split('/');
+          parts.pop();
+          currentDirectory = parts.join('/');
+          isShowingAll = false;
+          await loadFiles();
         }
       });
 

@@ -83,6 +83,50 @@ def list_raw_mp4s() -> List[str]:
     return sorted([f for f in os.listdir(RAW_DIR) if f.lower().endswith(".mp4")])
 
 
+def get_directory_contents(directory_path: str) -> Dict[str, List[str]]:
+    """Get contents of a directory, separating folders and MP4 files."""
+    if not os.path.isdir(directory_path):
+        return {"folders": [], "files": []}
+    
+    try:
+        items = os.listdir(directory_path)
+        folders = []
+        files = []
+        
+        for item in items:
+            item_path = os.path.join(directory_path, item)
+            if os.path.isdir(item_path):
+                folders.append(item)
+            elif item.lower().endswith(".mp4"):
+                files.append(item)
+        
+        return {
+            "folders": sorted(folders),
+            "files": sorted(files)
+        }
+    except PermissionError:
+        return {"folders": [], "files": []}
+
+
+def find_all_mp4_files(directory_path: str) -> List[str]:
+    """Recursively find all MP4 files in a directory and its subdirectories."""
+    mp4_files = []
+    if not os.path.isdir(directory_path):
+        return mp4_files
+    
+    try:
+        for root, dirs, files in os.walk(directory_path):
+            for file in files:
+                if file.lower().endswith(".mp4"):
+                    # Get relative path from the raw directory
+                    rel_path = os.path.relpath(os.path.join(root, file), directory_path)
+                    mp4_files.append(rel_path)
+    except PermissionError:
+        pass
+    
+    return sorted(mp4_files)
+
+
 def build_new_name(original_name: str, pattern: str) -> str:
     name, ext = os.path.splitext(original_name)
     if pattern in name:
@@ -121,8 +165,32 @@ def api_conventions():
 @app.route("/api/files", methods=["GET"]) 
 def api_files():
     ensure_dirs()
-    files = list_raw_mp4s()
-    return jsonify({"raw_dir": os.path.relpath(RAW_DIR, BASE_DIR), "files": files})
+    subdir = request.args.get("subdir", "").strip()
+    
+    # Build the full path to the directory we want to browse
+    if subdir:
+        # Sanitize the subdirectory path to prevent directory traversal attacks
+        subdir = os.path.normpath(subdir)
+        if subdir.startswith("..") or subdir.startswith("/"):
+            subdir = ""
+        target_dir = os.path.join(RAW_DIR, subdir)
+    else:
+        target_dir = RAW_DIR
+        subdir = ""
+    
+    # Get directory contents
+    contents = get_directory_contents(target_dir)
+    
+    # Also get all MP4 files recursively for the "show all" option
+    all_mp4_files = find_all_mp4_files(RAW_DIR)
+    
+    return jsonify({
+        "raw_dir": os.path.relpath(RAW_DIR, BASE_DIR),
+        "current_dir": subdir,
+        "folders": contents["folders"],
+        "files": contents["files"],
+        "all_mp4_files": all_mp4_files
+    })
 
 
 @app.route("/api/preview", methods=["POST"]) 
@@ -132,7 +200,17 @@ def api_preview():
     pattern: str = payload.get("pattern", "")
     mapping: List[Tuple[str, str]] = []
     for f in files:
-        mapping.append((f, build_new_name(f, pattern)))
+        # Build new name, preserving directory structure if file is in subdirectory
+        if "/" in f or "\\" in f:
+            # File is in a subdirectory, preserve the directory structure
+            dir_name = os.path.dirname(f)
+            file_name = os.path.basename(f)
+            new_file_name = build_new_name(file_name, pattern)
+            new_name = os.path.join(dir_name, new_file_name)
+        else:
+            # File is in root directory
+            new_name = build_new_name(f, pattern)
+        mapping.append((f, new_name))
     return jsonify({"preview": [{"original": o, "new": n} for o, n in mapping]})
 
 
@@ -149,8 +227,23 @@ def api_export():
         if not os.path.isfile(src):
             results.append({"file": f, "status": "missing"})
             continue
-        new_name = build_new_name(f, pattern)
+        
+        # Build new name, preserving directory structure if file is in subdirectory
+        if "/" in f or "\\" in f:
+            # File is in a subdirectory, preserve the directory structure
+            dir_name = os.path.dirname(f)
+            file_name = os.path.basename(f)
+            new_file_name = build_new_name(file_name, pattern)
+            new_name = os.path.join(dir_name, new_file_name)
+        else:
+            # File is in root directory
+            new_name = build_new_name(f, pattern)
+        
         dst = os.path.join(FIXED_DIR, new_name)
+        
+        # Ensure the destination directory exists
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        
         shutil.copy2(src, dst)
         results.append({"file": f, "copied_to": os.path.relpath(dst, BASE_DIR), "status": "ok"})
 
