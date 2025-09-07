@@ -1,10 +1,27 @@
-# Ignore MP4 files in raw and fixed_metadata directories
-raw/*.mp4
-fixed_metadata/*.mp4
+# Ignore all video files in raw and fixed_metadata directories and subdirectories
+raw/**/*.mp4
+raw/**/*.avi
+raw/**/*.mov
+raw/**/*.mkv
+raw/**/*.wmv
+raw/**/*.flv
+raw/**/*.webm
+raw/**/*.m4v
 
-# Keep the directories but ignore their contents
+fixed_metadata/**/*.mp4
+fixed_metadata/**/*.avi
+fixed_metadata/**/*.mov
+fixed_metadata/**/*.mkv
+fixed_metadata/**/*.wmv
+fixed_metadata/**/*.flv
+fixed_metadata/**/*.webm
+fixed_metadata/**/*.m4v
+
+# Keep the directories and subdirectories but ignore their video contents
 !raw/.gitkeep
 !fixed_metadata/.gitkeep
+!raw/*/
+!fixed_metadata/*/
 
 # Python virtual environment
 .venv/
@@ -28,3 +45,6 @@ instance/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Test tracking file (local development only)
+test_tracker.json

@@ -237,6 +237,13 @@
           opt.value = p; opt.textContent = p;
           playerSel.appendChild(opt);
         }
+        
+        // Set PLAY'A VR as the default selection
+        const playaVrOption = Array.from(playerSel.options).find(opt => opt.value === "PLAY'A VR");
+        if (playaVrOption) {
+          playerSel.value = "PLAY'A VR";
+        }
+        
         playerSel.dispatchEvent(new Event('change'));
       }
 

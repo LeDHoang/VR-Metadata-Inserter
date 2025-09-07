@@ -1,0 +1,102 @@
+VR Metadata Inserter - Test Manager Commands
+=============================================
+
+This file lists all available commands for the test_manager.py script.
+
+BASIC USAGE:
+python test_manager.py <command> [arguments]
+
+AVAILABLE COMMANDS:
+==================
+
+1. ADD A NEW TEST
+   Command: python test_manager.py add "Test description" [status] [notes] [folder]
+   
+   Examples:
+   - python test_manager.py add "Testing directory browsing functionality"
+   - python test_manager.py add "Testing file export" in_progress
+   - python test_manager.py add "Testing VR player selection" pending "Need to check all players"
+   - python test_manager.py add "Testing specific folder" completed "All working" "test_1"
+   - python test_manager.py add "Testing subfolder" in_progress "Testing now" "raw/subfolder"
+   
+   Description: Creates a new test entry with auto-incrementing test number
+   Status options: pending, in_progress, completed, failed, cancelled
+   Notes: Optional additional information about the test
+   Folder: Optional folder path where test files are located (e.g., 'test_1', 'raw/subfolder')
+
+2. UPDATE EXISTING TEST
+   Command: python test_manager.py update <test_number> <status> [notes] [folder]
+   
+   Examples:
+   - python test_manager.py update 1 completed
+   - python test_manager.py update 2 failed "Export function not working"
+   - python test_manager.py update 3 in_progress "Currently testing file selection"
+   - python test_manager.py update 4 completed "All working" "test_2"
+   - python test_manager.py update 5 failed "Issue found" "raw/subfolder"
+   
+   Description: Updates the status, notes, and/or folder of an existing test
+   Test number: Must be an integer (existing test number)
+   Status options: pending, in_progress, completed, failed, cancelled
+   Notes: Optional additional information about the test
+   Folder: Optional folder path where test files are located
+
+3. LIST ALL TESTS
+   Command: python test_manager.py list
+   
+   Example:
+   - python test_manager.py list
+   
+   Description: Displays all tests with their current status, descriptions, dates, folders, and notes
+   Shows visual indicators: ⏳ pending, 🔄 in_progress, ✅ completed, ❌ failed, 🚫 cancelled
+   Folder information is displayed when available
+
+4. GET NEXT TEST NUMBER
+   Command: python test_manager.py next
+   
+   Example:
+   - python test_manager.py next
+   
+   Description: Shows the next test number that will be assigned to a new test
+   Useful for planning or referencing before creating a test
+
+STATUS OPTIONS:
+===============
+- pending: Test is planned but not started
+- in_progress: Test is currently being executed
+- completed: Test finished successfully
+- failed: Test encountered errors or didn't work as expected
+- cancelled: Test was cancelled or abandoned
+
+WORKFLOW EXAMPLES:
+==================
+
+1. Starting a new test:
+   python test_manager.py add "Testing new feature X" in_progress
+
+2. Completing a test:
+   python test_manager.py update 1 completed "All functionality working correctly"
+
+3. Marking a failed test:
+   python test_manager.py update 2 failed "Export function crashes on large files"
+
+4. Checking what tests exist:
+   python test_manager.py list
+
+5. Planning next test:
+   python test_manager.py next
+
+FILE LOCATIONS:
+===============
+- Test data: test_tracker.json (git-ignored, local only)
+- Manager script: test_manager.py
+- This help file: test_manager_commands.txt
+
+NOTES:
+======
+- The test_tracker.json file is automatically ignored by git
+- Test numbers auto-increment based on the highest existing test number + 1
+- Test numbers are always unique and cannot be reused
+- All dates are automatically recorded when tests are created/updated
+- The system tracks last updated timestamp for the entire tracker
+- Folder field helps track which directory/subdirectory the test files are in
+- Folder paths can be relative (e.g., 'test_1') or include subdirectories (e.g., 'raw/subfolder')
