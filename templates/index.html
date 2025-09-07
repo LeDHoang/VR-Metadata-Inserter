@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VR Filename Tool</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; }
+      header { padding: 16px 20px; border-bottom: 1px solid #ddd; }
+      h1 { font-size: 18px; margin: 0; }
+      main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+      .panel { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+      label { display: block; font-weight: 600; margin: 6px 0; }
+      select, button { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      ul { list-style: none; padding-left: 0; margin: 0; max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 6px; }
+      li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #f2f2f2; }
+      li:last-child { border-bottom: none; }
+      .file-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .preview { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      footer { padding: 12px 16px; border-top: 1px solid #ddd; display: flex; align-items: center; gap: 12px; }
+      .status { font-size: 12px; opacity: .8; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>VR Filename Tool</h1>
+    </header>
+    <main>
+      <section class="panel">
+        <label for="player">VR Player</label>
+        <select id="player"></select>
+        <label for="pattern">Naming Convention</label>
+        <select id="pattern"></select>
+      </section>
+      <section class="panel">
+        <div class="row">
+          <div>
+            <label>RAW MP4 files (raw/)</label>
+            <ul id="files"></ul>
+          </div>
+          <div>
+            <label>Preview new names (fixed_metadata/)</label>
+            <ul id="preview"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <button id="exportBtn">Export renamed copies</button>
+      <div class="status" id="status"></div>
+    </footer>
+
+    <script>
+      const byId = (id) => document.getElementById(id);
+      const playerSel = byId('player');
+      const patternSel = byId('pattern');
+      const filesUl = byId('files');
+      const previewUl = byId('preview');
+      const statusEl = byId('status');
+      const exportBtn = byId('exportBtn');
+
+      let currentFiles = [];
+
+      async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Request failed');
+        return res.json();
+      }
+
+      function renderFiles(files) {
+        filesUl.innerHTML = '';
+        for (const f of files) {
+          const li = document.createElement('li');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = true;
+          cb.dataset.filename = f;
+          const span = document.createElement('span');
+          span.className = 'file-name';
+          span.textContent = f;
+          li.appendChild(cb);
+          li.appendChild(span);
+          filesUl.appendChild(li);
+        }
+      }
+
+      function getSelectedFiles() {
+        const boxes = filesUl.querySelectorAll('input[type="checkbox"]');
+        const out = [];
+        boxes.forEach(b => { if (b.checked) out.push(b.dataset.filename); });
+        return out;
+      }
+
+      async function refreshPreview() {
+        previewUl.innerHTML = '';
+        const pattern = patternSel.value || '';
+        const files = getSelectedFiles();
+        if (!pattern || files.length === 0) return;
+        const res = await fetch('/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pattern, files })
+        });
+        const data = await res.json();
+        for (const row of data.preview) {
+          const li = document.createElement('li');
+          li.className = 'preview';
+          li.textContent = `${row.original} → ${row.new}`;
+          previewUl.appendChild(li);
+        }
+      }
+
+      async function loadPlayers() {
+        const data = await fetchJSON('/api/players');
+        playerSel.innerHTML = '';
+        for (const p of data.players) {
+          const opt = document.createElement('option');
+          opt.value = p; opt.textContent = p;
+          playerSel.appendChild(opt);
+        }
+        playerSel.dispatchEvent(new Event('change'));
+      }
+
+      async function loadConventions(player) {
+        patternSel.innerHTML = '';
+        const data = await fetchJSON(`/api/conventions?player=${encodeURIComponent(player)}`);
+        for (const pat of data.patterns) {
+          const opt = document.createElement('option');
+          opt.value = pat; opt.textContent = pat;
+          patternSel.appendChild(opt);
+        }
+        await refreshPreview();
+      }
+
+      async function loadFiles() {
+        const data = await fetchJSON('/api/files');
+        currentFiles = data.files;
+        renderFiles(currentFiles);
+        await refreshPreview();
+      }
+
+      playerSel.addEventListener('change', async () => {
+        await loadConventions(playerSel.value);
+      });
+
+      patternSel.addEventListener('change', async () => {
+        await refreshPreview();
+      });
+
+      filesUl.addEventListener('change', async (e) => {
+        if (e.target && e.target.matches('input[type="checkbox"]')) {
+          await refreshPreview();
+        }
+      });
+
+      exportBtn.addEventListener('click', async () => {
+        statusEl.textContent = 'Exporting...';
+        try {
+          const pattern = patternSel.value || '';
+          const files = getSelectedFiles();
+          const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pattern, files })
+          });
+          const data = await res.json();
+          const ok = data.results.filter(r => r.status === 'ok');
+          statusEl.textContent = `Done. ${ok.length} file(s) exported to fixed_metadata/`;
+        } catch (err) {
+          statusEl.textContent = 'Export failed';
+        }
+      });
+
+      (async function init() {
+        await loadPlayers();
+        await loadFiles();
+      })();
+    </script>
+  </body>
+  </html>
+
+

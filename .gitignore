@@ -1,0 +1,30 @@
+# Ignore MP4 files in raw and fixed_metadata directories
+raw/*.mp4
+fixed_metadata/*.mp4
+
+# Keep the directories but ignore their contents
+!raw/.gitkeep
+!fixed_metadata/.gitkeep
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Flask
+instance/
+.webassets-cache
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

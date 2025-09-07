@@ -1,0 +1,45 @@
+VR Player Filename Naming Conventions
+=====================================
+
+UNIVERSAL PATTERNS (Work across most VR players):
+_180_LR = 180-degree Left-Right stereoscopic
+_180_SBS = 180-degree Side-By-Side
+_180_TB = 180-degree Top-Bottom
+_360_LR = 360-degree Left-Right stereoscopic
+_360_SBS = 360-degree Side-By-Side
+
+PLAYA VR SPECIFIC:
+_180_LR = 180-degree Left-Right stereoscopic
+_VR180_LR = VR180 Left-Right
+_SBS_180 = Side-By-Side 180-degree
+_stereo_180 = Stereo 180-degree
+
+SKYBOX VR PLAYER:
+_3dh, _LR, _SBS, _Side-By-Side = Side-by-Side 3D
+_3dv, _TB, _Top-Bottom = Top-Bottom 3D
+_180x180, _180° = 180-degree
+_360, _360° = 360-degree
+_F180, _VR180 = Fisheye 180°
+
+PIGASUS VR:
+_LRF = Full side-by-side 3D
+_LR = Left-Right stereoscopic
+
+RAD TV:
+_180 = Spherical 180°
+_360 = Spherical 360°
+_sbs, _lr, _rl = Side-by-Side
+_tb, _bt, _ou = Top-Bottom
+
+COMMEDIA:
+_SBS, _LR, _3Dh = Side-by-Side
+_TB, _3Dv = Top-Bottom
+_180, _180x180 = Equirectangular 180°
+_360, _180x360 = Equirectangular 360°
+
+OCULUS VIDEO APP:
+_180_LR, _180_TB = 3D 180°
+_360_LR, _360_TB = 3D 360°
+
+RECOMMENDED UNIVERSAL FORMAT:
+videoname_180_SBS.mp4 (works with most players)
